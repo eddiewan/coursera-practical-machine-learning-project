@@ -1,0 +1,109 @@
+---
+title: 'Coursera: Practical Machine Learning - Course Project'
+author: "Anuj Seth"
+date: "October 31, 2018"
+output: html_document
+---
+
+```{r setup}
+knitr::opts_chunk$set(echo = TRUE, message = FALSE, warning = FALSE)
+```
+
+## Introduction
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+In this project, the goal is to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. 
+
+They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. 
+
+More information is available from the website here: http://web.archive.org/web/20161224072740/http:/groupware.les.inf.puc-rio.br/har
+
+
+```{r}
+#Load the required libraries
+library(dplyr)
+library(ggplot2)
+library(lubridate)
+library(caret)
+library(randomForest)
+library(e1071)
+library(rpart)
+library(rpart.plot)
+```
+
+## Exploratory Data Analysis
+
+Loading the files and doing some basic exploratory data analysis. 
+
+```{r}
+# Load the data sets
+training = read.csv('pml-training.csv', head=TRUE, sep=",", na.strings=c("NA",""))
+test = read.csv('pml-testing.csv', head=TRUE, sep=",", na.strings=c("NA",""))
+```
+
+```{r}
+dim(training)
+str(training)
+
+dim(test)
+str(test)
+```
+
+## Data cleansing
+We next run thru the data cleansing for the data set and eliminate columns that are not required. 
+```{r cache=TRUE}
+# Remove columns that are not relevant to accelerometer measurements.
+
+training <- training[, colSums(is.na(training)) == 0]
+test <- test[, colSums(is.na(test)) == 0]
+
+classe <- training$classe
+
+colsToRemove <- c('X', 'user_name', 'raw_timestamp_part_1', 'raw_timestamp_part_2', 'cvtd_timestamp', 'new_window', 'num_window')
+
+training <- training[ , !(names(training) %in% colsToRemove)]
+
+trainingCleaned <- training[, sapply(training, is.numeric)]
+trainingCleaned$classe <- classe
+
+test <- test[,  , !(names(test) %in% colsToRemove)]
+testCleaned <- test[, sapply(test, is.numeric)]
+```
+
+## Create the Data Sets
+
+Let's now create the training and test data sets.
+
+```{r cache=TRUE}
+set.seed(181031)
+inTrain <- createDataPartition(trainingCleaned$classe, p=0.70, list=F)
+trainingData <- trainingCleaned[inTrain, ]
+testData <- trainingCleaned[-inTrain, ]
+```
+
+## Random Forest Model
+
+```{r cache=TRUE}
+rf <- trainControl(method="cv", 5)
+rfmod <- train(classe ~., data=trainingData, method="rf", trControl=rf, importance=TRUE, ntree=100)
+rfmod
+```
+
+```{r cache=TRUE}
+fit <- train(classe ~ ., data=training, ntree = 100, method = 'rf', trControl = trainControl(method = "cv", number = 5))
+
+plot(fit$finalModel)
+ 
+prediction = predict(fit, test)
+print(prediction)
+```
+
+```{r}
+tft <- rpart(classe ~ ., data=training, method="class")
+prp(tft)
+```
+
+## Conclusion
+
+Predictions: B A A A A E D B A A B C B A E E A B B B
